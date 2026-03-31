@@ -7,8 +7,7 @@ from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
-from ultralytics import YOLO
-import settings                          # ← 추가
+import settings
 from services.fall_detector    import process_fall
 from services.motion_detector  import process_motion
 from services.violent_detector import process_violent
@@ -22,8 +21,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-yolo_model    = YOLO("yolov8n.pt")
-current_frame = None
+current_frame  = None
 last_sent_date = None  # 마지막으로 daily_activity 전송한 날짜
 
 
@@ -59,6 +57,8 @@ def generate_frames():
     global current_frame
     while True:
         if current_frame is None:
+            import time
+            time.sleep(0.01)  # CPU 점유 방지
             continue
         _, buffer   = cv2.imencode('.jpg', current_frame)
         frame_bytes = buffer.tobytes()
@@ -141,25 +141,8 @@ async def analysis_loop():
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         await send_daily_activity()
 
-        results       = yolo_model(frame, verbose=False)
-        display_frame = results[0].plot()
-
-        cv2.putText(display_frame,
-            f"FALL: {'DETECTED!' if fallen else 'Normal'}",
-            (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
-            (0, 0, 255) if fallen else (0, 255, 0), 2)
-
-        cv2.putText(display_frame,
-            f"MOTION: {motion_score} | PERSON: {'YES' if person_detected else 'NO'}",
-            (10, 65), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
-            (0, 255, 255), 2)
-
-        cv2.putText(display_frame,
-            f"VIOLENT: {'DETECTED!' if violent else 'Normal'} | PERSONS: {person_count}",
-            (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
-            (0, 0, 255) if violent else (255, 165, 0), 2)
-
-        current_frame = display_frame
+        # 쌩 화면만 스트리밍 (오버레이 없음)
+        current_frame = frame
 
     cap.release()
 
