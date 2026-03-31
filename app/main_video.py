@@ -17,7 +17,7 @@ from services.violent_detector import process_violent
 # ⚠️  분석할 동영상 파일 경로를 여기에 입력하세요
 #     예) VIDEO_PATH = "test.m4v"
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-VIDEO_PATH = "test_video.mp4"   # ← 여기만 바꾸면 됩니다
+VIDEO_PATH = "낙상1.mp4"   # ← 여기만 바꾸면 됩니다
 
 PORT = 5005
 app = FastAPI()
