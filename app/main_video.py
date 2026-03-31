@@ -19,6 +19,7 @@ from services.violent_detector import process_violent
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 VIDEO_PATH = "test_video.mp4"   # ← 여기만 바꾸면 됩니다
 
+PORT = 5005
 app = FastAPI()
 
 app.add_middleware(
@@ -187,5 +188,5 @@ if __name__ == "__main__":
     thread        = threading.Thread(target=run_analysis)
     thread.daemon = True
     thread.start()
-    uvicorn.run(app, host="0.0.0.0", port=5005)
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
     # http://localhost:5005/video_feed 브라우저에 입력!
