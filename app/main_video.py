@@ -202,7 +202,7 @@ async def analysis_loop():
                 if int(box.cls) == 0:                          # 사람(class 0)만
                     x1, y1, x2, y2 = map(int, box.xyxy[0])
                     cv2.rectangle(annotated_frame, (x1, y1), (x2, y2),
-                          (0, 0, 178), 2)              # 초록색, 두께 2
+                          (0, 0, 178), 2)              
 
         current_frame = annotated_frame                        # ← frame 대신 annotated_frame
 # ─────────────────────────────────────────────────────
