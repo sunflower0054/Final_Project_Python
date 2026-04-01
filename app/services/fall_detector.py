@@ -1,25 +1,20 @@
-import cv2
 import time
 import mediapipe as mp
 import settings
 # ↑ settings.py에서 fall_sensitivity 값 가져와요
+from services.notifier import send_event
 
-# ── 모델 초기화 ──────────────────────────────────────────────
-mp_pose    = mp.solutions.pose
-pose       = mp_pose.Pose()
+# ── MediaPipe 상수 (모델 초기화는 main.py에서, 여기선 landmark 인덱스만 사용) ──
+mp_pose = mp.solutions.pose
 
 # ── 상태 변수 ────────────────────────────────────────────────
 fall_start_time = None
 event_sent      = False
+last_event_time  = 0          # ← 추가
+COOLDOWN_SECONDS = 60 
 
 FALL_DURATION_THRESHOLD = 10
 # 낙상 지속 시간은 고정값 (슬라이더 대상 아님)
-
-# ── 관절 좌표 추출 ───────────────────────────────────────────
-def extract_keypoints(frame):
-    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    result    = pose.process(rgb_frame)
-    return result.pose_landmarks
 
 # ── 신뢰도 점수 계산 ─────────────────────────────────────────
 def get_confidence(landmarks):
@@ -40,7 +35,6 @@ def is_fallen(landmarks):
     right_hip = landmarks.landmark[mp_pose.PoseLandmark.RIGHT_HIP]
     hip_y     = (left_hip.y + right_hip.y) / 2
 
-    # ↓ 하드코딩 0.1 → settings.fall_sensitivity 로 변경!
     if abs(nose.y - hip_y) < settings.fall_sensitivity:
         return True
     return False
@@ -57,17 +51,18 @@ def check_duration():
     return False, int(elapsed)
 
 # ── 낙상 감지 메인 함수 ──────────────────────────────────────
-async def process_fall(frame):
-    global fall_start_time, event_sent
-    from services.notifier import send_event
+# 변경: frame 대신 pose_landmarks를 받아서 처리 (MediaPipe 중복 실행 제거)
+async def process_fall(frame, pose_landmarks):
+    global fall_start_time, event_sent, last_event_time
 
-    landmarks  = extract_keypoints(frame)
-    confidence = get_confidence(landmarks)
-    fallen     = is_fallen(landmarks)
+    confidence = get_confidence(pose_landmarks)
+    fallen     = is_fallen(pose_landmarks)
+
+    now = time.time()
 
     if fallen:
         is_confirmed, _ = check_duration()
-        if is_confirmed and not event_sent:
+        if is_confirmed and (now - last_event_time > COOLDOWN_SECONDS):  # ← 쿨다운
             await send_event(
                 event_type = "FALL_DETECTED",
                 frame      = frame,
@@ -75,6 +70,7 @@ async def process_fall(frame):
                 timestamp  = time.strftime("%Y-%m-%dT%H:%M:%S"),
                 metadata   = {}
             )
+            last_event_time = now    # ← 전송 시각 기록
             event_sent = True
     else:
         fall_start_time = None

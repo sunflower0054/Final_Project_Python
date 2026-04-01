@@ -53,7 +53,6 @@ async def send_event(event_type, frame, confidence, timestamp, metadata=None):
     print(f"🚨 [{event_type}] 이벤트 전송 최종 실패 (3회 모두 실패)")
 
 
-# ── 기존 send_event() 함수 아래에 추가 ──────────────────
 async def send_daily_score(date: str, motion_score: int):
     if not SPRING_BOOT_ENABLED:
         print(f"✅ [DAILY] {date} motion_score={motion_score} (전송 비활성화)")
@@ -65,14 +64,25 @@ async def send_daily_score(date: str, motion_score: int):
         "motion_score": str(motion_score)
     }
 
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                SPRING_BOOT_DAILY_URL,
-                data=payload,
-                timeout=10.0
-            )
-        print(f"✅ [DAILY] 활동량 전송 완료: {date} = {motion_score}")
+    for attempt in range(MAX_RETRY):
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    SPRING_BOOT_DAILY_URL,
+                    data=payload,
+                    timeout=10.0
+                )
 
-    except Exception as e:
-        print(f"❌ [DAILY] 활동량 전송 실패: {e}")
+            if response.status_code == 200:
+                print(f"✅ [DAILY] 활동량 전송 완료: {date} = {motion_score}")
+                return
+            else:
+                print(f"⚠️ [DAILY] 전송 실패 (상태코드: {response.status_code}), {attempt+1}번째 시도")
+
+        except Exception as e:
+            print(f"❌ [DAILY] 전송 오류: {e}, {attempt+1}번째 시도")
+
+        if attempt < MAX_RETRY - 1:
+            await asyncio.sleep(RETRY_DELAYS[attempt])
+
+    print(f"🚨 [DAILY] 활동량 전송 최종 실패 (3회 모두 실패) — {date} = {motion_score}")

@@ -1,36 +1,28 @@
-import cv2
 import time
 import numpy as np
 import mediapipe as mp
-from ultralytics import YOLO
 import settings
 # ↑ settings.py에서 velocity_threshold 값 가져와요
+from services.notifier import send_event
 
-# ── 모델 초기화 ──────────────────────────────────────────────
-mp_pose    = mp.solutions.pose
-pose       = mp_pose.Pose()
-yolo_model = YOLO("yolov8n.pt")
+# ── MediaPipe 상수 (모델 초기화는 main.py에서, 여기선 landmark 인덱스만 사용) ──
+mp_pose = mp.solutions.pose
 
 # ── 상태 변수 ────────────────────────────────────────────────
 prev_keypoints    = None
 consecutive_count = 0
 event_sent        = False
+last_event_time   = 0         # ← 추가
+COOLDOWN_SECONDS  = 30        # ← 같은 이벤트 재전송 최소 간격
 
 CONSECUTIVE_FRAMES = 3
 # 연속 프레임 기준은 고정값 (슬라이더 대상 아님)
 
-# ── 관절 좌표 추출 ───────────────────────────────────────────
-def extract_keypoints(frame):
-    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    result    = pose.process(rgb_frame)
-    return result.pose_landmarks
-
-# ── 인물 수 파악 ─────────────────────────────────────────────
-def count_persons(frame):
-    results    = yolo_model(frame, verbose=False)
+# ── 인물 수 파악 (YOLO 결과를 받아서 파싱, 중복 실행 제거) ──
+def count_persons_from_results(yolo_results):
     count      = 0
     total_conf = 0.0
-    for result in results:
+    for result in yolo_results:
         for box in result.boxes:
             if int(box.cls) == 0:
                 count      += 1
@@ -52,7 +44,6 @@ def calculate_velocity(prev_landmarks, curr_landmarks):
 
 # ── 폭행 여부 판단 ───────────────────────────────────────────
 def is_violent(velocity, person_count):
-    # ↓ 하드코딩 0.15 → settings.velocity_threshold 로 변경!
     return person_count >= 2 and velocity >= settings.velocity_threshold
 
 # ── 연속 프레임 체크 ─────────────────────────────────────────
@@ -65,17 +56,18 @@ def check_consecutive_frames(is_violent_flag):
     return consecutive_count >= CONSECUTIVE_FRAMES
 
 # ── 폭행 감지 메인 함수 ──────────────────────────────────────
-async def process_violent(frame):
-    global prev_keypoints, event_sent
-    from services.notifier import send_event
+# 변경: yolo_results, pose_landmarks를 받아서 처리 (YOLO, MediaPipe 중복 실행 제거)
+async def process_violent(frame, yolo_results, pose_landmarks):
+    global prev_keypoints, event_sent, last_event_time
 
-    person_count, confidence = count_persons(frame)
-    curr_keypoints           = extract_keypoints(frame)
-    velocity                 = calculate_velocity(prev_keypoints, curr_keypoints)
+    person_count, confidence = count_persons_from_results(yolo_results)
+    velocity                 = calculate_velocity(prev_keypoints, pose_landmarks)
     violent_flag             = is_violent(velocity, person_count)
     is_confirmed             = check_consecutive_frames(violent_flag)
 
-    if is_confirmed and not event_sent:
+    now = time.time()
+
+    if is_confirmed and (now - last_event_time > COOLDOWN_SECONDS):  # ← 쿨다운 체크
         await send_event(
             event_type = "VIOLENT_MOTION_DETECTED",
             frame      = frame,
@@ -86,10 +78,11 @@ async def process_violent(frame):
                 "max_velocity": velocity
             }
         )
+        last_event_time = now    # ← 전송 시각 기록
         event_sent = True
 
     if not violent_flag:
         event_sent = False
 
-    prev_keypoints = curr_keypoints
+    prev_keypoints = pose_landmarks
     return violent_flag, person_count, velocity
