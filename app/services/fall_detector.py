@@ -63,7 +63,7 @@ async def process_fall(frame, pose_landmarks):
     if fallen:
         is_confirmed, _ = check_duration()
         if is_confirmed and (now - last_event_time > COOLDOWN_SECONDS):  # ← 쿨다운
-            await send_event(
+            send_event(
                 event_type = "FALL_DETECTED",
                 frame      = frame,
                 confidence = confidence,

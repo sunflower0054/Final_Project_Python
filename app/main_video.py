@@ -51,7 +51,7 @@ last_sent_date = None  # 마지막으로 daily_activity 전송한 날짜
 
 
 # ── [SB-013] 자정 전송 함수 ───────────────────────────────────
-async def send_daily_activity():
+def send_daily_activity():
     from services.notifier       import send_daily_score
     import services.motion_detector as motion_detector
     global last_sent_date
@@ -61,7 +61,7 @@ async def send_daily_activity():
 
     if now.hour == 0 and now.minute == 0 and last_sent_date != today:
         yesterday = today - datetime.timedelta(days=1)
-        await send_daily_score(
+        send_daily_score(
             date         = str(yesterday),
             motion_score = motion_detector.daily_motion_total
         )
@@ -221,7 +221,7 @@ async def analysis_loop():
         print(f"🔍 감지 물체: {len(yolo_results[0].boxes)}개 | 뼈대: {'✅' if pose_landmarks else '❌'}")
         print(f"📊 낙상:{fallen}, 활동:{motion_score:.0f}, 폭행:{violent}")
 
-        await send_daily_activity()
+        send_daily_activity()
 
     cap.release()
 

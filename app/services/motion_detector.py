@@ -77,7 +77,7 @@ async def process_motion(frame, yolo_results):
     now = time.time()
 
     if is_confirmed and (now - last_event_time > COOLDOWN_SECONDS):  # ← 쿨다운
-        await send_event(
+        send_event(
             event_type = "NO_MOTION_DETECTED",
             frame      = frame,
             confidence = confidence,

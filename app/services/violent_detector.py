@@ -68,7 +68,7 @@ async def process_violent(frame, yolo_results, pose_landmarks):
     now = time.time()
 
     if is_confirmed and (now - last_event_time > COOLDOWN_SECONDS):  # ← 쿨다운 체크
-        await send_event(
+        send_event(
             event_type = "VIOLENT_MOTION_DETECTED",
             frame      = frame,
             confidence = confidence,
