@@ -3,9 +3,9 @@ import cv2
 import time
 
 SPRING_BOOT_ENABLED = True  # Spring Boot 연동 시 True로 변경
-SPRING_BOOT_URL = "http://localhost:8091/api/v1/events/receive"  
-SPRING_BOOT_DAILY_URL = "http://localhost:8091/api/v1/daily-activity"
-RESIDENT_ID = 22
+SPRING_BOOT_URL = "http://192.168.0.9:8091/api/v1/events/receive"  
+SPRING_BOOT_DAILY_URL = "http://192.168.0.9:8091/api/v1/daily-activity"
+RESIDENT_ID = 24
 MAX_RETRY = 3
 RETRY_DELAYS = [1, 5, 30]
 

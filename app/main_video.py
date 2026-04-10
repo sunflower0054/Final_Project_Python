@@ -6,13 +6,14 @@ import mediapipe as mp
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from ultralytics import YOLO
 import uvicorn
 import settings
 from services.fall_detector    import process_fall
 from services.motion_detector  import process_motion
 from services.violent_detector import process_violent
+
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ⚠️  분석할 동영상 파일 경로를 여기에 입력하세요
@@ -72,10 +73,12 @@ def send_daily_activity():
 
 # ── DTO ───────────────────────────────────────────────────────
 class AiSettingsDto(BaseModel):
-    fall_sensitivity:    float
-    no_motion_threshold: int
-    velocity_threshold:  float
+    fall_sensitivity:    float = Field(alias="fallSensitivity")
+    no_motion_threshold: int   = Field(alias="noMotionThreshold")
+    velocity_threshold:  float = Field(alias="velocityThreshold")
 
+    class Config:
+        populate_by_name = True  # 언더스코어로도 받을 수 있게
 
 # ── 스트리밍 제너레이터 ────────────────────────────────────────
 def generate_frames():
@@ -112,13 +115,14 @@ def video_feed():
 
 
 # ── AI 감지 설정 엔드포인트 ──────────────────────────────────────
+#  Spring Boot가 FastAPI에 설정값 변경 요청
 @app.post("/api/settings")
 def update_settings(dto: AiSettingsDto):
     settings.fall_sensitivity    = dto.fall_sensitivity
     settings.no_motion_threshold = dto.no_motion_threshold
     settings.velocity_threshold  = dto.velocity_threshold
 
-    print(f"✅ 설정값 업데이트!")
+    print(f"✅ 설정값 업데이트!", flush=True)
     print(f"   낙상 민감도    : {settings.fall_sensitivity}")
     print(f"   무응답 감지시간: {settings.no_motion_threshold}초")
     print(f"   폭행 임계값    : {settings.velocity_threshold}")
@@ -130,6 +134,7 @@ def update_settings(dto: AiSettingsDto):
         "velocity_threshold":  settings.velocity_threshold
     }
 
+# Spring Boot가 FastAPI에서 현재 설정값 조회 요청
 @app.get("/api/settings")
 def get_settings():
     return {
@@ -218,8 +223,8 @@ async def analysis_loop():
         violent, person_count, velocity             = violent_result
 
         # 디버깅은 여기서
-        print(f"🔍 감지 물체: {len(yolo_results[0].boxes)}개 | 뼈대: {'✅' if pose_landmarks else '❌'}")
-        print(f"📊 낙상:{fallen}, 활동:{motion_score:.0f}, 폭행:{violent}")
+        # print(f"🔍 감지 물체: {len(yolo_results[0].boxes)}개 | 뼈대: {'✅' if pose_landmarks else '❌'}")
+        # print(f"📊 낙상:{fallen}, 활동:{motion_score:.0f}, 폭행:{violent}")
 
         send_daily_activity()
 
